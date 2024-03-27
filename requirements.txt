@@ -1,0 +1,3 @@
+zappa
+fastapi
+uvicorn[standard]
