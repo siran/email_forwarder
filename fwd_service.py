@@ -77,8 +77,9 @@ def apply_forwarding_rules(msg):
                 print('Skipping since not in managed domains')
                 continue # Skip non-managed domains
             for rule, forward_email_list in rules.items():
-                if rule in email:
-                    print(f'match {rule} in {email}')
+                type(email)
+                print(f'match {rule} in {email}?')
+                if rule in email[1]:
                     forwarding.update(forward_email_list)
                     break
             else:

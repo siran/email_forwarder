@@ -7,7 +7,7 @@
         "s3_bucket": "zappa-4woak3692",
         "log_level": "ERROR",
         "apigateway_enabled": false,
-        "lambda_description": "Email forwarding service",
+        "lambda_description": "Email forwarder",
         "timeout_seconds": 30,
         "events": [{
             "function": "fwd_service.process_event",
