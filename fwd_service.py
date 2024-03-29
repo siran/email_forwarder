@@ -6,9 +6,9 @@ import traceback
 from email import policy
 from email.parser import BytesParser
 from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
-from email.utils import parseaddr, getaddresses, formataddr
+from email.mime.text import MIMEText
+from email.utils import parseaddr, getaddresses
+
 
 s3 = boto3.client('s3')
 ses = boto3.client('ses', region_name='us-east-1')
@@ -60,7 +60,7 @@ def apply_forwarding_rules(msg):
     rules = get_rules()
     forwarding_to = set()
     forwarding_cc = set()
-    catch_all = rules.get('@', 'anmichel@gmail.com')
+    catch_all = rules.get('_catch_all_', 'anmichel@gmail.com')
 
     # Split handling of 'To' and 'Cc' to properly fill forwarding_cc
     to_addresses = getaddresses(msg.get_all('to', []))
@@ -79,7 +79,7 @@ def apply_forwarding_rules(msg):
             for rule, forward_email_list in rules.items():
                 type(email)
                 print(f'match {rule} in {email}?')
-                if rule in email[1]:
+                if rule in email:
                     forwarding.update(forward_email_list)
                     break
             else:
@@ -99,30 +99,41 @@ def get_original_domain(msg):
 
 def send_response_email(original_msg, params, original_recipient_domain):
     sender_name, sender_email = parseaddr(original_msg['From'])
+    ses_from_address = f"{sender_name} via {original_recipient_domain} <fwdr@{original_recipient_domain}>"
     if not sender_name:
-        sender_name = sender_email
+        sender_name = ''
 
-    # Sender address includes original recipient domain
-    ses_from_address = formataddr((f"{sender_name} via {original_recipient_domain}", f"fwdr@{original_recipient_domain}"))
+    subject = original_msg['Subject']
+    message_id = original_msg['Message-ID']
 
+    to_addresses = params.get('to_addresses', [])
+    cc_addresses = params.get('cc_addresses', [])
+    bcc_addresses = params.get('bcc_addresses', [])
+    reply_to_addresses = [sender_email]
+
+    # Create a new MIME message
     forward_msg = MIMEMultipart('mixed')
-    forward_msg['Subject'] = original_msg['Subject']
+    forward_msg['Subject'] = subject
     forward_msg['From'] = ses_from_address
-    forward_msg['To'] = ', '.join(params['to_addresses'])
-    if params.get('cc_addresses'):
-        forward_msg['Cc'] = ', '.join(params['cc_addresses'])
+    forward_msg['To'] = ', '.join(to_addresses)
+    if cc_addresses:
+        forward_msg['Cc'] = ', '.join(cc_addresses)
+    forward_msg['Reply-To'] = ', '.join(reply_to_addresses)
+    forward_msg['In-Reply-To'] = message_id
+    forward_msg['References'] = message_id
 
-    forward_msg['Reply-To'] = original_msg['Reply-To'] if 'Reply-To' in original_msg else original_msg['From']
-    forward_msg['In-Reply-To'] = original_msg['Message-ID']
-    forward_msg['References'] = original_msg['Message-ID']
+    # Create a new MIME message part for the forwarded email body
+    forward_body = MIMEMultipart('alternative')
 
-    att = MIMEBase('message', 'rfc822')
-    att.set_payload(original_msg.as_string())
-    encoders.encode_base64(att)
-    forward_msg.attach(att)
+    # Add the original message as a MIME message part
+    forward_body.attach(original_msg)
 
+    # Attach the forward body to the main message
+    forward_msg.attach(forward_body)
+
+    # Send the email
     ses.send_raw_email(
         Source=ses_from_address,
-        Destinations=params['to_addresses'] + params.get('cc_addresses', []),
+        Destinations=to_addresses + cc_addresses + bcc_addresses,
         RawMessage={'Data': forward_msg.as_string()}
     )
