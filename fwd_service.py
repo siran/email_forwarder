@@ -49,13 +49,18 @@ def process_s3_event(s3_event):
     with open(local_filename, 'rb') as file:
         msg = BytesParser(policy=policy.default).parse(file)
 
+    original_recipient_domain = get_original_domain(msg)
+    if original_recipient_domain not in managed_domains:
+        print('Skipping since not in managed domains')
+        return # Skip non-managed domains
 
     forwarding_to, forwarding_cc = apply_forwarding_rules(msg)
+
 
     send_response_email(msg, {
         'to_addresses': list(forwarding_to),
         'cc_addresses': list(forwarding_cc),
-    }, original_recipient_domain=get_original_domain(msg))
+    }, original_recipient_domain=original_recipient_domain)
 
 def apply_forwarding_rules(msg):
     rules = get_rules()
@@ -103,7 +108,7 @@ def send_response_email(original_msg, params, original_recipient_domain):
     original_to_name, original_to_address = parseaddr(original_msg['To'])
 
     # Define the sender information for the SES address
-    ses_from_address = f"{sender_name} via {original_recipient_domain} <fwdr@{original_recipient_domain}>"
+    ses_from_address = f"{sender_name} ({sender_email}) <fwdr@{original_recipient_domain}>"
 
     # Print original message details
     print("Original FROM:", original_msg['From'])
@@ -142,12 +147,12 @@ def send_response_email(original_msg, params, original_recipient_domain):
 
     # Print forwarded message details
     print("Forwarded FROM:", ses_from_address)
-    print("Forwarded TO:", ', '.join(to_addresses))
-    print("Forwarded SUBJECT:", subject)
+    print("Forwarded TO:", ', '.join(params.get('to_addresses', [])))
+    print("Forwarded SUBJECT:", original_msg['Subject'])
 
     # Send the email
     ses.send_raw_email(
         Source=ses_from_address,
-        Destinations=to_addresses + cc_addresses + bcc_addresses,
+        Destinations=params.get('to_addresses', []) + params.get('cc_addresses', []) + params.get('bcc_addresses', []),
         RawMessage={'Data': forward_msg.as_string()}
     )
