@@ -9,6 +9,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr, getaddresses
 
+print('3')
 
 s3 = boto3.client('s3')
 ses = boto3.client('ses', region_name='us-east-1')
@@ -99,37 +100,50 @@ def get_original_domain(msg):
 
 def send_response_email(original_msg, params, original_recipient_domain):
     sender_name, sender_email = parseaddr(original_msg['From'])
+    original_to_name, original_to_address = parseaddr(original_msg['To'])
+
+    # Define the sender information for the SES address
     ses_from_address = f"{sender_name} via {original_recipient_domain} <fwdr@{original_recipient_domain}>"
-    if not sender_name:
-        sender_name = ''
 
-    subject = original_msg['Subject']
-    message_id = original_msg['Message-ID']
-
-    to_addresses = params.get('to_addresses', [])
-    cc_addresses = params.get('cc_addresses', [])
-    bcc_addresses = params.get('bcc_addresses', [])
-    reply_to_addresses = [sender_email]
+    # Print original message details
+    print("Original FROM:", original_msg['From'])
+    print("Original TO:", original_msg['To'])
+    print("Original SUBJECT:", original_msg['Subject'])
 
     # Create a new MIME message
     forward_msg = MIMEMultipart('mixed')
-    forward_msg['Subject'] = subject
+    forward_msg['Subject'] = original_msg['Subject']
     forward_msg['From'] = ses_from_address
-    forward_msg['To'] = ', '.join(to_addresses)
-    if cc_addresses:
-        forward_msg['Cc'] = ', '.join(cc_addresses)
-    forward_msg['Reply-To'] = ', '.join(reply_to_addresses)
-    forward_msg['In-Reply-To'] = message_id
-    forward_msg['References'] = message_id
+    forward_msg['To'] = ', '.join(params.get('to_addresses', []))
+    forward_msg['Cc'] = ', '.join(params.get('cc_addresses', []))
+    forward_msg['Reply-To'] = sender_email
+    forward_msg['In-Reply-To'] = original_msg['Message-ID']
+    forward_msg['References'] = original_msg['Message-ID']
 
     # Create a new MIME message part for the forwarded email body
     forward_body = MIMEMultipart('alternative')
+
+    # Define the original sender indication
+    original_sender_name = sender_name if sender_name else sender_email
+    original_sender_indication = f"--- {original_sender_name} wrote: ---\n"
+
+    # Define the original sender indication with <p> tags for HTML version
+    original_sender_indication_html = f"<p>{original_sender_indication}</p>\n"
+
+    # Attach the original sender indication to both plain text and HTML parts
+    for content_type, indication in [('plain', original_sender_indication), ('html', original_sender_indication_html)]:
+        forward_body.attach(MIMEText(indication, content_type))
 
     # Add the original message as a MIME message part
     forward_body.attach(original_msg)
 
     # Attach the forward body to the main message
     forward_msg.attach(forward_body)
+
+    # Print forwarded message details
+    print("Forwarded FROM:", ses_from_address)
+    print("Forwarded TO:", ', '.join(to_addresses))
+    print("Forwarded SUBJECT:", subject)
 
     # Send the email
     ses.send_raw_email(
