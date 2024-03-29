@@ -52,15 +52,24 @@ def process_s3_event(s3_event):
     original_recipient_domain = get_original_domain(msg)
     if original_recipient_domain not in managed_domains:
         print('Skipping since not in managed domains')
-        return # Skip non-managed domains
+        return  # Skip non-managed domains
 
     forwarding_to, forwarding_cc = apply_forwarding_rules(msg)
 
+    # Extract additional recipients from the 'To' field
+    to_addresses = getaddresses(msg.get_all('to', []))
+    cc_addresses = getaddresses(msg.get_all('cc', []))
+
+    # Combine the forwarding addresses with the addresses in the 'To' field
+    forwarding_to.update(address[1] for address in to_addresses)
+    forwarding_cc.update(address[1] for address in cc_addresses)
 
     send_response_email(msg, {
         'to_addresses': list(forwarding_to),
         'cc_addresses': list(forwarding_cc),
     }, original_recipient_domain=original_recipient_domain)
+
+
 
 def apply_forwarding_rules(msg):
     rules = get_rules()
