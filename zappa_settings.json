@@ -3,28 +3,15 @@
         "aws_region": "us-east-1",
         "profile_name": "anmichel",
         "project_name": "fwd_service",
-        "runtime": "python3.10",
+        "runtime": "python3.11",
         "s3_bucket": "zappa-4woak3692",
         "log_level": "ERROR",
         "apigateway_enabled": false,
         "lambda_description": "Email forwarder",
         "timeout_seconds": 30,
-        "events": [{
-            "function": "fwd_service.process_event",
-            "event_source": {
-                "arn":  "arn:aws:s3:::preferredframe.com",
-                "events": [
-                   "s3:ObjectCreated:*"
-                ],
-                "key_filters": [
-                  {
-                    "type": "prefix",
-                    "value": "incoming/"
-                  }]
-            }
-        }],
         "manage_roles": false,
         "role_name": "fwd-service-prod-ZappaLambdaExecutionRole",
+        "lambda_handler": "email_forwarder.process_event",
         "extra_permissions": [
             {
                 "Effect": "Allow",
