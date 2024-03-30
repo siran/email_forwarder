@@ -1,9 +1,8 @@
-import os
 import json
 import boto3
-import urllib.parse
 import traceback
 from email import message_from_bytes
+from email.utils import parseaddr
 
 # Configuration variables
 s3 = boto3.client('s3')
