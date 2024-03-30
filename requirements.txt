@@ -1,3 +1,4 @@
 zappa
 fastapi
 uvicorn[standard]
+boto3

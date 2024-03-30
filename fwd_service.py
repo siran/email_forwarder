@@ -49,48 +49,37 @@ def process_s3_event(s3_event):
     with open(local_filename, 'rb') as file:
         msg = BytesParser(policy=policy.default).parse(file)
 
-    original_recipient_domain = get_original_domain(msg)
-    if original_recipient_domain not in managed_domains:
-        print('Skipping since not in managed domains')
-        return  # Skip non-managed domains
+    original_recipient_domain = parseaddr(msg['To'])[1].split('@')[-1]
 
-    forwarding_to, forwarding_cc = apply_forwarding_rules(msg)
-
-    # Extract additional recipients from the 'To' field
-    to_addresses = getaddresses(msg.get_all('to', []))
-    cc_addresses = getaddresses(msg.get_all('cc', []))
-
-    # Combine the forwarding addresses with the addresses in the 'To' field
-    forwarding_to.update(address[1] for address in to_addresses)
-    forwarding_cc.update(address[1] for address in cc_addresses)
+    forwarding_to, forwarding_cc, forwarding_bcc = apply_forwarding_rules(msg)
 
     send_response_email(msg, {
         'to_addresses': list(forwarding_to),
         'cc_addresses': list(forwarding_cc),
+        'bcc_addresses': list(forwarding_bcc),
     }, original_recipient_domain=original_recipient_domain)
-
 
 
 def apply_forwarding_rules(msg):
     rules = get_rules()
     forwarding_to = set()
     forwarding_cc = set()
+    forwarding_bcc = set()
     catch_all = rules.get('_catch_all_', 'anmichel@gmail.com')
 
-    # Split handling of 'To' and 'Cc' to properly fill forwarding_cc
+    # Split handling of 'To', 'Cc', and 'Bcc'
     to_addresses = getaddresses(msg.get_all('to', []))
     cc_addresses = getaddresses(msg.get_all('cc', []))
-
-    print(to_addresses, cc_addresses)
+    bcc_addresses = getaddresses(msg.get_all('bcc', []))
 
     def apply_rules(addresses):
-        # Process addressess according to get_rules()
+        # Process addresses according to get_rules()
         forwarding = set()
         for name, email in addresses:
             email_domain = email.split('@')[-1]
             if email_domain not in managed_domains:
-                print('Skipping since not in managed domains')
-                continue # Skip non-managed domains
+                print(f'Skipping {name},{email} since not in managed domains')
+                continue  # Skip non-managed domains
             for rule, forward_email_list in rules.items():
                 type(email)
                 print(f'match {rule} in {email}?')
@@ -104,13 +93,9 @@ def apply_forwarding_rules(msg):
 
     forwarding_to = apply_rules(to_addresses)
     forwarding_cc = apply_rules(cc_addresses)
+    forwarding_bcc = apply_rules(bcc_addresses)
 
-    return forwarding_to, forwarding_cc
-
-def get_original_domain(msg):
-    # Default to a known domain if needed
-    recipient_address = parseaddr(msg['To'])[1]
-    return recipient_address.split('@')[-1]
+    return forwarding_to, forwarding_cc, forwarding_bcc
 
 def send_response_email(original_msg, params, original_recipient_domain):
     sender_name, sender_email = parseaddr(original_msg['From'])
