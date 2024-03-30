@@ -7,6 +7,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from email.header import Header
 from email import encoders
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
 
 # Configuration variables
 s3 = boto3.client('s3')
@@ -70,30 +73,42 @@ def apply_forwarding_rules(intended_recipient):
             forwarding_addresses.update(emails)
             break
     else:
-        forwarding_addresses.add(rules.get('_catch_all_', default_catch_all_email))
+        forwarding_addresses.update(rules.get('_catch_all_', default_catch_all_email))
 
     return forwarding_addresses
 
 def send_response_email(original_msg, forwarding_addresses, intended_recipient):
-    # Use a verified email address as the sender
-    verified_sender_email = "verified@example.com"  # Replace with your verified sender email address
+    sender_name, sender_email = parseaddr(original_msg['From'])
+    recipient_domain = intended_recipient.split('@')[-1]
+    ses_from_address = f"{sender_name} ({sender_email}) <fwdr@{recipient_domain}>"
 
-    # Create a new MIMEMultipart message to wrap the original message as an attachment
-    new_msg = MIMEMultipart()
-    new_msg['Subject'] = f"Fwd: {original_msg['Subject']}"
-    new_msg['From'] = verified_sender_email
-    new_msg['To'] = ', '.join(list(forwarding_addresses))  # Join multiple addresses with a comma
+    # Create the new forwarding email as a mixed MIME message
+    forward_msg = MIMEMultipart('mixed')
+    forward_msg['Subject'] = f"Fwd: {original_msg['Subject']}"
+    forward_msg['From'] = ses_from_address
+    forward_msg['To'] = ', '.join(forwarding_addresses)
 
-    # Attach the original message as an application/octet-stream MIME part
-    part = MIMEApplication(original_msg.as_string())
-    part.add_header('Content-Disposition', 'attachment', filename="forwarded_message.eml")
-    new_msg.attach(part)
+    # Simplified content creation with minimal HTML formatting
+    forwarding_note = f"Forwarded message from {sender_name} ({sender_email}) for {intended_recipient}:"
+    # For HTML, simply wrap the note in <p> tags
+    html_content = f"<p>{forwarding_note}</p>"
 
-    # Convert the new message to a string
-    email_string = new_msg.as_string()
+    # Attach both plain text and HTML parts within an 'alternative' MIME part
+    msg_body = MIMEMultipart('alternative')
+    text_part = MIMEText(forwarding_note, 'plain')
+    html_part = MIMEText(html_content, 'html')
+
+    msg_body.attach(text_part)
+    msg_body.attach(html_part)
+
+    forward_msg.attach(msg_body)
+
+    # Attach the original email as a separate MIME part, preserving its format
+    original_email_part = MIMEText(original_msg.as_string(), 'message/rfc822')
+    forward_msg.attach(original_email_part)
 
     ses.send_raw_email(
-        Source=verified_sender_email,
-        Destinations=list(forwarding_addresses),
-        RawMessage={'Data': email_string}
+        Source=ses_from_address,
+        Destinations=forwarding_addresses,
+        RawMessage={"Data": forward_msg.as_string()}
     )
