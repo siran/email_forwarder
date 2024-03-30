@@ -8,7 +8,7 @@ from email import message_from_bytes
 # Configuration variables
 s3 = boto3.client('s3')
 ses = boto3.client('ses', region_name='us-east-1')
-bucket_name = 'your-email-bucket-name'  # Set the S3 bucket name here
+bucket_name = 'your-email-bucket-name'  # Specify your S3 bucket name here
 
 managed_domains = [
     'preferredframe.com',
@@ -41,7 +41,7 @@ def process_ses_event(ses_event):
     receipt = ses_event['receipt']
     recipients = receipt['recipients']
 
-    # The key in S3 is derived from the SES messageId
+    # The key in S3 is derived from the SES messageId, prefixed with "incoming/"
     key = f"incoming/{messageId}"
 
     process_ses_s3(bucket_name, key, recipients)
@@ -52,14 +52,12 @@ def process_ses_s3(bucket, key, recipients):
 
     msg = message_from_bytes(email_body)
 
-    # Apply forwarding rules
+    # Apply forwarding rules for each recipient
     for recipient in recipients:
         forwarding_to, _, _ = apply_forwarding_rules(recipient)
         if forwarding_to:
             send_response_email(msg, {
                 'to_addresses': list(forwarding_to),
-                'cc_addresses': [],
-                'bcc_addresses': [],
             }, recipient.split('@')[-1])
 
 def apply_forwarding_rules(recipient):
@@ -78,8 +76,16 @@ def apply_forwarding_rules(recipient):
     return forwarding_to, set(), set()
 
 def send_response_email(original_msg, params, original_recipient_domain):
-    # Similar to the original send_response_email function
-    # Ensure it forwards the email as is, including handling attachments if present
+    sender_name, sender_email = parseaddr(original_msg['From'])
+    original_to_name, original_to_address = parseaddr(original_msg['To'])
 
-# Note: Implement the 'send_response_email' similarly to your original logic, ensuring the email is forwarded as is.
-    pass
+    ses_from_address = f"{sender_name} ({sender_email}) <fwdr@{original_recipient_domain}>"
+
+    # Sending the email as is
+    ses.send_raw_email(
+        Source=ses_from_address,
+        Destinations=params.get('to_addresses', []),
+        RawMessage={'Data': original_msg.as_string()}
+    )
+
+print('Function setup complete.')
