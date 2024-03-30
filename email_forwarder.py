@@ -3,16 +3,24 @@ import boto3
 import traceback
 from email import message_from_bytes
 from email.utils import parseaddr
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+from email.header import Header
+from email import encoders
 
 # Configuration variables
 s3 = boto3.client('s3')
 ses = boto3.client('ses', region_name='us-east-1')
-bucket_name = 'your-email-bucket-name'  # Specify your S3 bucket name here
+bucket_name = 'preferredframe.com'  # Adjust with your actual bucket name
+
+default_catch_all_email = ["anmichel@gmail.com"]
 
 managed_domains = [
     'preferredframe.com',
     'wildnloyal.com',
     'cinemestizo.com',
+    'eserviciosat.com',
+    'eduweb.com',
 ]
 
 def get_rules():
@@ -38,53 +46,54 @@ def process_ses_event(ses_event):
     mail = ses_event['mail']
     messageId = mail['messageId']
     receipt = ses_event['receipt']
-    recipients = receipt['recipients']
+    intended_recipients = receipt['recipients']
 
-    # The key in S3 is derived from the SES messageId, prefixed with "incoming/"
     key = f"incoming/{messageId}"
+    process_ses_s3(bucket_name, key, intended_recipients)
 
-    process_ses_s3(bucket_name, key, recipients)
-
-def process_ses_s3(bucket, key, recipients):
+def process_ses_s3(bucket, key, intended_recipients):
     obj = s3.get_object(Bucket=bucket, Key=key)
     email_body = obj['Body'].read()
-
     msg = message_from_bytes(email_body)
 
-    # Apply forwarding rules for each recipient
-    for recipient in recipients:
-        forwarding_to, _, _ = apply_forwarding_rules(recipient)
-        if forwarding_to:
-            send_response_email(msg, {
-                'to_addresses': list(forwarding_to),
-            }, recipient.split('@')[-1])
+    for intended_recipient in intended_recipients:
+        forwarding_addresses = apply_forwarding_rules(intended_recipient)
+        print(f"Forwarding {intended_recipients} to {forwarding_addresses}")
+        send_response_email(msg, forwarding_addresses, intended_recipient)
 
-def apply_forwarding_rules(recipient):
+def apply_forwarding_rules(intended_recipient):
     rules = get_rules()
-    forwarding_to = set()
+    forwarding_addresses = set()
 
-    domain = recipient.split('@')[-1]
-    if domain in managed_domains:
-        for rule, forward_emails in rules.items():
-            if rule in recipient or rule.split('@')[-1] == domain:
-                forwarding_to.update(forward_emails)
-                break
-        else:
-            forwarding_to.update(rules.get('_catch_all_', []))
+    for rule, emails in rules.items():
+        if rule in intended_recipient:
+            forwarding_addresses.update(emails)
+            break
+    else:
+        forwarding_addresses.add(rules.get('_catch_all_', default_catch_all_email))
 
-    return forwarding_to, set(), set()
+    return forwarding_addresses
 
-def send_response_email(original_msg, params, original_recipient_domain):
-    sender_name, sender_email = parseaddr(original_msg['From'])
-    original_to_name, original_to_address = parseaddr(original_msg['To'])
+def send_response_email(original_msg, forwarding_addresses, intended_recipient):
+    # Use a verified email address as the sender
+    verified_sender_email = "verified@example.com"  # Replace with your verified sender email address
 
-    ses_from_address = f"{sender_name} ({sender_email}) <fwdr@{original_recipient_domain}>"
+    # Create a new MIMEMultipart message to wrap the original message as an attachment
+    new_msg = MIMEMultipart()
+    new_msg['Subject'] = f"Fwd: {original_msg['Subject']}"
+    new_msg['From'] = verified_sender_email
+    new_msg['To'] = ', '.join(list(forwarding_addresses))  # Join multiple addresses with a comma
 
-    # Sending the email as is
+    # Attach the original message as an application/octet-stream MIME part
+    part = MIMEApplication(original_msg.as_string())
+    part.add_header('Content-Disposition', 'attachment', filename="forwarded_message.eml")
+    new_msg.attach(part)
+
+    # Convert the new message to a string
+    email_string = new_msg.as_string()
+
     ses.send_raw_email(
-        Source=ses_from_address,
-        Destinations=params.get('to_addresses', []),
-        RawMessage={'Data': original_msg.as_string()}
+        Source=verified_sender_email,
+        Destinations=list(forwarding_addresses),
+        RawMessage={'Data': email_string}
     )
-
-print('Function setup complete.')
