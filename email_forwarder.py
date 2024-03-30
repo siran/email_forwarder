@@ -8,7 +8,7 @@ from email.mime.application import MIMEApplication
 from email.header import Header
 from email import encoders
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from email.encoders import encode_7or8bit
 
 
 # Configuration variables
@@ -82,16 +82,26 @@ def send_response_email(original_msg, forwarding_addresses, intended_recipient):
     recipient_domain = intended_recipient.split('@')[-1]
     ses_from_address = f"{sender_name} ({sender_email}) <fwdr@{recipient_domain}>"
 
+    # Log the forwarding details
+    print(f"Original FROM: {original_msg['From']}")
+    print(f"Original TO: {original_msg['To']}")
+    print(f"Original SUBJECT: {original_msg['Subject']}")
+    print(f"Forwarding to addresses: {', '.join(forwarding_addresses)}")
+    print(f"Intended recipient domain: {recipient_domain}")
+
+    # Simplified content creation with minimal HTML formatting
+    forwarding_note = f"Forwarded message from {sender_name} ({sender_email}) for {intended_recipient}:"
+    print("--- Forward section ---")
+    print(forwarding_note)
+
+    # For HTML, simply wrap the note in <p> tags
+    html_content = f"<p>{forwarding_note}</p>"
+
     # Create the new forwarding email as a mixed MIME message
     forward_msg = MIMEMultipart('mixed')
     forward_msg['Subject'] = f"Fwd: {original_msg['Subject']}"
     forward_msg['From'] = ses_from_address
     forward_msg['To'] = ', '.join(forwarding_addresses)
-
-    # Simplified content creation with minimal HTML formatting
-    forwarding_note = f"Forwarded message from {sender_name} ({sender_email}) for {intended_recipient}:"
-    # For HTML, simply wrap the note in <p> tags
-    html_content = f"<p>{forwarding_note}</p>"
 
     # Attach both plain text and HTML parts within an 'alternative' MIME part
     msg_body = MIMEMultipart('alternative')
@@ -100,15 +110,16 @@ def send_response_email(original_msg, forwarding_addresses, intended_recipient):
 
     msg_body.attach(text_part)
     msg_body.attach(html_part)
-
     forward_msg.attach(msg_body)
 
-    # Attach the original email as a separate MIME part, preserving its format
-    original_email_part = MIMEText(original_msg.as_string(), 'message/rfc822')
+    # Correctly attaching the original email
+    original_email_part = MIMEApplication(original_msg.as_string(), 'rfc822; name="original_message.eml"')
+    encode_7or8bit(original_email_part)
+    original_email_part.add_header('Content-Disposition', 'attachment; filename="original_message.eml"')
     forward_msg.attach(original_email_part)
 
     ses.send_raw_email(
         Source=ses_from_address,
-        Destinations=forwarding_addresses,
+        Destinations=list(forwarding_addresses),
         RawMessage={"Data": forward_msg.as_string()}
     )
