@@ -82,44 +82,36 @@ def send_response_email(original_msg, forwarding_addresses, intended_recipient):
     recipient_domain = intended_recipient.split('@')[-1]
     ses_from_address = f"{sender_name} ({sender_email}) <fwdr@{recipient_domain}>"
 
-    # Log the forwarding details
-    print(f"Original FROM: {original_msg['From']}")
-    print(f"Original TO: {original_msg['To']}")
-    print(f"Original SUBJECT: {original_msg['Subject']}")
-    print(f"Forwarding to addresses: {', '.join(forwarding_addresses)}")
-    print(f"Intended recipient domain: {recipient_domain}")
-
-    # Simplified content creation with minimal HTML formatting
-    forwarding_note = f"Forwarded message from {sender_name} ({sender_email}) for {intended_recipient}:"
-    print("--- Forward section ---")
-    print(forwarding_note)
-
-    # For HTML, simply wrap the note in <p> tags
-    html_content = f"<p>{forwarding_note}</p>"
-
-    # Create the new forwarding email as a mixed MIME message
+    # Create a new MIME message
     forward_msg = MIMEMultipart('mixed')
-    forward_msg['Subject'] = f"Fwd: {original_msg['Subject']}"
+    forward_msg['Subject'] = original_msg['Subject']
     forward_msg['From'] = ses_from_address
     forward_msg['To'] = ', '.join(forwarding_addresses)
+    forward_msg['Reply-To'] = original_msg['Reply-To'] if 'Reply-To' in original_msg else sender_email
+    forward_msg['In-Reply-To'] = original_msg['Message-ID']
+    forward_msg['References'] = original_msg['Message-ID']
 
-    # Attach both plain text and HTML parts within an 'alternative' MIME part
-    msg_body = MIMEMultipart('alternative')
-    text_part = MIMEText(forwarding_note, 'plain')
-    html_part = MIMEText(html_content, 'html')
+    # Create a new MIME message part for the forwarded email body
+    forward_body = MIMEMultipart('alternative')
 
-    msg_body.attach(text_part)
-    msg_body.attach(html_part)
-    forward_msg.attach(msg_body)
+    # Define the original sender indication with <p> tags for HTML version
+    original_sender_name = sender_name if sender_name else sender_email
+    original_sender_indication_html = f"<p>--- Forwarded message from {original_sender_name} ---</p>\n"
 
-    # Correctly attaching the original email
-    original_email_part = MIMEApplication(original_msg.as_string(), 'rfc822; name="original_message.eml"')
-    encode_7or8bit(original_email_part)
-    original_email_part.add_header('Content-Disposition', 'attachment; filename="original_message.eml"')
-    forward_msg.attach(original_email_part)
+    # Attach the original sender indication to HTML part
+    forward_body.attach(MIMEText(original_sender_indication_html, 'html'))
 
+    # Attach the original message as a part
+    forward_msg.attach(original_msg)
+
+    # Print forwarded message details
+    print("Forwarded FROM:", ses_from_address)
+    print("Forwarded TO:", ', '.join(forwarding_addresses))
+    print("Forwarded SUBJECT:", original_msg['Subject'])
+
+    # Send the email using SES
     ses.send_raw_email(
         Source=ses_from_address,
         Destinations=list(forwarding_addresses),
-        RawMessage={"Data": forward_msg.as_string()}
+        RawMessage={'Data': forward_msg.as_string()}
     )
