@@ -2,7 +2,7 @@
     "prod": {
         "aws_region": "us-east-1",
         "profile_name": "anmichel",
-        "project_name": "fwd_service",
+        "project_name": "email_forwarder",
         "runtime": "python3.11",
         "s3_bucket": "zappa-4woak3692",
         "log_level": "ERROR",

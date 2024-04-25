@@ -30,9 +30,10 @@ def get_rules():
     return {
         'an@': ['anmichel@gmail.com'],
         'dani@': ['danielruiz2000@gmail.com'],
+        'shashi@preferredframe.com': ['sskuwar@gmail.com'],
         '@preferredframe.com': ['anmichel@gmail.com'],
         '@wildnloyal.com': ['anmichel@gmail.com'],
-        '@cinemestizo.com': ['anmichel@gmail.com', 'danielruiz2000@gmail.com'],
+        '@cinemestizo.com': ['anmichel@gmail.com', 'danielruiz2000@gmail.com', 'jocalejandro@gmail.com'],
         '_catch_all_': ['anmichel@gmail.com'],
     }
 
@@ -80,7 +81,7 @@ def apply_forwarding_rules(intended_recipient):
 def send_response_email(original_msg, forwarding_addresses, intended_recipient):
     sender_name, sender_email = parseaddr(original_msg['From'])
     recipient_domain = intended_recipient.split('@')[-1]
-    ses_from_address = f"{sender_name} ({sender_email}) <fwdr@{recipient_domain}>"
+    ses_from_address = f"{sender_name} ({sender_email}) <fwdr+{intended_recipient}>"
 
     # Create a new MIME message
     forward_msg = MIMEMultipart('mixed')
@@ -108,6 +109,8 @@ def send_response_email(original_msg, forwarding_addresses, intended_recipient):
     print("Forwarded FROM:", ses_from_address)
     print("Forwarded TO:", ', '.join(forwarding_addresses))
     print("Forwarded SUBJECT:", original_msg['Subject'])
+    print("Forwarded REPLY-TO:", forward_msg['Reply-To'])
+    print("Oringinal REPLY-TO:", original_msg['Reply-To'])
 
     # Send the email using SES
     ses.send_raw_email(
