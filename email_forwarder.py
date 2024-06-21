@@ -80,8 +80,9 @@ def apply_forwarding_rules(intended_recipient):
 
 def send_response_email(original_msg, forwarding_addresses, intended_recipient):
     sender_name, sender_email = parseaddr(original_msg['From'])
-    recipient_domain = intended_recipient.split('@')[-1]
-    ses_from_address = f"{sender_name} ({sender_email}) <fwdr+{intended_recipient}>"
+    print(sender_email)
+    sender_preat, sender_postat = sender_email.split("@")
+    ses_from_address = f"{sender_name} <{sender_preat}.at.{sender_postat}+To+{intended_recipient}>"
 
     # Create a new MIME message
     forward_msg = MIMEMultipart('mixed')
