@@ -30,10 +30,10 @@ managed_domains = [
 def get_rules():
     return {
         # 'shashi@preferredframe.com': ['sskuwar@gmail.com'],
-        'felix@preferredframe.com': ['konefka@gmail.com'],
-        'jorge@preferredframe.com': ['bricenojlx@gmail.com'],
-        'nathan@preferredframe.com': ['n.rapport@gmail.com'],
-        'cecilia@preferredframe.com': ['cecilia.rojas.rojas@gmail.com'],
+        'felix@preferredframe.com': ['konefka@gmail.com'], # chief?
+        'jorge@preferredframe.com': ['bricenojlx@gmail.com'], # chief of endogenous development
+        'nathan@preferredframe.com': ['n.rapport@gmail.com'], # chief of research and technology
+        'cecilia@preferredframe.com': ['cecilia.rojas.rojas@gmail.com'], # chief of marketing
 
         'jose@cinemestizo.com': ['jocalejandro@gmail.com'],
         'dani@cinemestizo.com': ['danielruiz2000@gmail.com'],
