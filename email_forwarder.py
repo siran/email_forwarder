@@ -1,6 +1,7 @@
 import json
 import boto3
 import traceback
+import re
 from email import message_from_bytes
 from email.utils import parseaddr
 from email.mime.multipart import MIMEMultipart
@@ -28,9 +29,17 @@ managed_domains = [
 
 def get_rules():
     return {
+        # 'shashi@preferredframe.com': ['sskuwar@gmail.com'],
+        'felix@preferredframe.com': ['konefka@gmail.com'],
+        'jorge@preferredframe.com': ['bricenojlx@gmail.com'],
+        'nathan@preferredframe.com': ['n.rapport@gmail.com'],
+        'cecilia@preferredframe.com': ['cecilia.rojas.rojas@gmail.com'],
+
+        'jose@cinemestizo.com': ['jocalejandro@gmail.com'],
+        'dani@cinemestizo.com': ['danielruiz2000@gmail.com'],
+
         'an@': ['anmichel@gmail.com'],
-        'dani@': ['danielruiz2000@gmail.com'],
-        'shashi@preferredframe.com': ['sskuwar@gmail.com'],
+
         '@preferredframe.com': ['anmichel@gmail.com'],
         '@wildnloyal.com': ['anmichel@gmail.com'],
         '@cinemestizo.com': ['anmichel@gmail.com', 'danielruiz2000@gmail.com', 'jocalejandro@gmail.com'],
@@ -70,7 +79,10 @@ def apply_forwarding_rules(intended_recipient):
     forwarding_addresses = set()
 
     for rule, emails in rules.items():
-        if rule in intended_recipient:
+        if rule == intended_recipient:
+            forwarding_addresses.update(emails)
+            break
+        elif rule in intended_recipient:
             forwarding_addresses.update(emails)
             break
     else:
