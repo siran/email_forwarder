@@ -34,6 +34,7 @@ def get_rules():
         'jorge@preferredframe.com': ['bricenojlx@gmail.com'], # chief of endogenous development
         'nathan@preferredframe.com': ['n.rapport@gmail.com'], # chief of research and technology
         'cecilia@preferredframe.com': ['cecilia.rojas.rojas@gmail.com'], # chief of marketing
+        'juan@preferredframe.com': ['juanfermin1@gmail.com'], # chief of media producing
 
         'jose@cinemestizo.com': ['jocalejandro@gmail.com'],
         'dani@cinemestizo.com': ['danielruiz2000@gmail.com'],
