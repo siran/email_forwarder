@@ -30,21 +30,23 @@ managed_domains = [
 def get_rules():
     return {
         # 'shashi@preferredframe.com': ['sskuwar@gmail.com'],
-        'felix@preferredframe.com': ['konefka@gmail.com'], # chief?
+        # 'felix@preferredframe.com': ['konefka@gmail.com'], # chief?
         'jorge@preferredframe.com': ['bricenojlx@gmail.com'], # chief of endogenous development
-        'nathan@preferredframe.com': ['n.rapport@gmail.com'], # chief of research and technology
+        # 'nathan@preferredframe.com': ['n.rapport@gmail.com'], # chief of research and technology
         'cecilia@preferredframe.com': ['cecilia.rojas.rojas@gmail.com'], # chief of marketing
         'juan@preferredframe.com': ['juanfermin1@gmail.com'], # chief of media producing
 
-        'jose@cinemestizo.com': ['jocalejandro@gmail.com'],
+        # 'jose@cinemestizo.com': ['jocalejandro@gmail.com'],
         'dani@cinemestizo.com': ['danielruiz2000@gmail.com'],
 
-        'an@': ['anmichel@gmail.com'],
+        'juan@wildnloyal.com': ['juanfermin1@gmail.com'], # chief of media producing (pref frame)
 
-        '@preferredframe.com': ['anmichel@gmail.com'],
-        '@wildnloyal.com': ['anmichel@gmail.com'],
-        '@cinemestizo.com': ['anmichel@gmail.com', 'danielruiz2000@gmail.com', 'jocalejandro@gmail.com'],
-        '_catch_all_': ['anmichel@gmail.com'],
+        'an@': ['anrodz42@gmail.com'],
+
+        '@preferredframe.com': ['anrodz42@gmail.com'],
+        '@wildnloyal.com': ['anrodz42@gmail.com'],
+        '@cinemestizo.com': ['anrodz42@gmail.com'], # 'danielruiz2000@gmail.com', 'jocalejandro@gmail.com'],
+        '_catch_all_': ['anrodz42@gmail.com'],
     }
 
 def process_event(event, context=None):
